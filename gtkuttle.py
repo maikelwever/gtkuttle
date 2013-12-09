@@ -25,25 +25,58 @@ class AddEndpointWindow():
         self.gladefile = "uifiles/add_new_endpoint_dialog.glade"
         self.data = endpoint_data
 
+        self.data.setdefault('name', '')
+        self.data.setdefault('address', 'user@host:22')
+        self.data.setdefault('subnet', '0.0.0.0/0')
+        self.data.setdefault('use_dns', False)
+        self.data.setdefault('use_askpass', True)
+
     def run(self):
+        # Initialize dialog
         self.wTree = gtk.glade.XML(self.gladefile, "addEndpointDlg")
         self.dlg = self.wTree.get_widget("addEndpointDlg")
+
+        # Get all widgets
+        self.in_name = self.wTree.get_widget('in_name')
+        self.in_address = self.wTree.get_widget('in_address')
+        self.in_subnet = self.wTree.get_widget('in_subnet')
+        self.cb_dns = self.wTree.get_widget('cb_dns')
+        self.cb_askpass = self.wTree.get_widget('cb_askpass')
+
+        # Set default widget text
+        self.in_name.set_text(self.data['name'])
+        self.in_address.set_text(self.data['address'])
+        self.in_subnet.set_text(self.data['subnet'])
+        self.cb_dns.set_active(self.data['use_dns'])
+        self.cb_askpass.set_active(self.data['use_askpass'])
+
+        # Show dialog
         self.result = self.dlg.run()
 
+        # Fetch data from dialog
+        self.data['name'] = self.in_name.get_text()
+        self.data['address'] = self.in_address.get_text()
+        self.data['subnet'] = self.in_subnet.get_text()
+        self.data['use_dns'] = self.cb_dns.get_active()
+        self.data['use_askpass'] = self.cb_askpass.get_active()
+
+        # Kill dialog and return data
         self.dlg.destroy()
-        return self.data
+        return self.result, self.data
 
 
 class MainApplication():
 
     settings = {
-        "endpoints": []
+        "endpoints": {},
     }
 
     def __init__(self):
         if not os.path.exists(SETTINGS_FILE_PATH):
             os.system('touch {0}'.format(SETTINGS_FILE_PATH))
             self.save_settings()
+
+        self.read_settings()
 
         self.ind = appindicator.Indicator("gtkuttle", "gtkuttle",
                       appindicator.CATEGORY_APPLICATION_STATUS)
@@ -57,8 +90,11 @@ class MainApplication():
         self.menu = gtk.Menu()
 
         # render saved endpoints
-        for endpoint in self.settings['endpoints']:
-            pass
+        for name, endpoint in self.settings['endpoints'].iteritems():
+            endpoint_item = gtk.MenuItem(name)
+            endpoint_item.show()
+            self.menu.append(endpoint_item)
+            endpoint_item.connect('activate', self.endpoint_clicked)
 
         # render app buttons
         add_new = gtk.MenuItem("Add new endpoint")
@@ -78,7 +114,7 @@ class MainApplication():
 
     def read_settings(self):
         with open(SETTINGS_FILE_PATH, "r") as f:
-            self.settings = json.parse(f.read())
+            self.settings = json.loads(f.read())
 
     def save_settings(self):
         with open(SETTINGS_FILE_PATH, "w") as f:
@@ -95,12 +131,40 @@ class MainApplication():
 
     def show_add_new_dialog(self, widget):
         dialog = AddEndpointWindow({})
-        result = dialog.run()
+        result, data = dialog.run()
         print result
+        print data
+
+        self.settings['endpoints'][data['name']] = data
+        self.save_settings()
+        self.build_menu()
+
+        print self.settings
+
+    def endpoint_clicked(self, widget):
+        ep_name = widget.get_label()
+        try:
+            endpoint = self.settings['endpoints'][ep_name]
+        except (IndexError, KeyError):
+            return
+
+        print endpoint
+
+        self.show_error("ERRUH!")
+        #import pdb; pdb.set_trace();
 
     def run(self):
         gtk.main()
         return 0
+
+    def show_error(self, message):
+        error_dialog = gtk.MessageDialog(
+            message_format=message,
+            type=gtk.MESSAGE_ERROR,
+            buttons=gtk.BUTTONS_CLOSE
+        )
+        response = error_dialog.run()
+        error_dialog.destroy()
 
 
 if __name__ == "__main__":
