@@ -165,8 +165,16 @@ class MainApplication():
             disconnect.connect('activate',
                                self.disconnect_current_session)
 
+        quitapp = gtk.MenuItem("Quit Gtkuttle")
+        quitapp.show()
+        self.menu.append(quitapp)
+        quitapp.connect('activate', self.quit_app)
+
         self.menu.show()
         self.ind.set_menu(self.menu)
+
+    def quit_app(self, widget=None):
+        gtk.main_quit()
 
     def add_menu_seperator(self):
         seperator = gtk.SeparatorMenuItem()
