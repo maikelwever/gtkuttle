@@ -36,7 +36,7 @@ STATUS_ATTENTION = 1
 
 def get_icon_filename(icon_name):
 	# Determine where the icon is
-	print os.path.abspath(os.path.join(os.path.dirname(__file__), 'icons', 'gtkuttle_{0}.png'.format(icon_name)))
+	return os.path.abspath(os.path.join(os.path.dirname(__file__), 'icons', 'gtkuttle_{0}.png'.format(icon_name)))
 
 # The main class
 class Indicator:
