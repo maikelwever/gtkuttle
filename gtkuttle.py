@@ -14,12 +14,13 @@ import pygtk
 pygtk.require('2.0')
 import gtk
 import gtk.glade
+import glib
 
 import json
 import os
-import time
+import subprocess
 
-DEBUG = True
+DEBUG = False
 
 try:
     import appindicator
@@ -86,6 +87,9 @@ class MainApplication():
         "endpoints": {},
     }
 
+    connecting = False
+    disconnecting = False
+
     def __init__(self):
         if not os.path.exists(SETTINGS_FILE_PATH):
             os.system('touch {0}'.format(SETTINGS_FILE_PATH))
@@ -93,22 +97,41 @@ class MainApplication():
 
         self.read_settings()
 
-        self.ind = appindicator.Indicator("gtkuttle", "gtkuttle",
+        self.ind = appindicator.Indicator("gtkuttle", "down",
                       appindicator.CATEGORY_APPLICATION_STATUS)
         self.ind.set_status(appindicator.STATUS_ACTIVE)
         self.ind.set_label("gtkuttle")
+        self.connected = self.session_is_open()
 
         self.menu = None
         self.build_menu()
 
+        if self.connected:
+            self.ind.set_icon('up')
+
+        glib.timeout_add_seconds(3, self.timeout_operation)
+
+    def timeout_operation(self):
+        if self.connecting and self.session_is_open():
+            self.connecting = False
+            self.connected = True
+            self.build_menu()
+            self.ind.set_icon('up')
+
+        elif self.disconnecting and not self.session_is_open():
+            self.disconnecting = False
+            self.build_menu()
+            self.ind.set_icon('down')
+
+        elif self.connected and not self.session_is_open():
+            self.connected = False
+            self.build_menu()
+            self.ind.set_icon('crashed')
+
+        glib.timeout_add_seconds(3, self.timeout_operation)
+
     def build_menu(self):
         self.menu = gtk.Menu()
-
-        if self.session_is_open():
-            disconnect_item = gtk.MenuItem("Disconnect current session")
-            disconnect_item.show()
-            self.menu.append(disconnect_item)
-            self.add_menu_seperator()
 
         # render saved endpoints
         for name, endpoint in self.settings['endpoints'].iteritems():
@@ -158,37 +181,38 @@ class MainApplication():
         with open(SETTINGS_FILE_PATH, "w") as f:
             f.write(json.dumps(self.settings))
 
-    def on_right_click(self, event_button, event_time):
-        self.menu.popup(None, None, None, 0, 0)
+    def disconnect_current_session(self, widget=None):
+        self.connected = False
 
-    def disconnect_current_session(self):
-        os.system("kill $(cat {0})".format(PID_FILE_PATH))
-        while self.session_is_open():
-            # Hmmmm....
-            # TODO: check if pidfile even gets removed...
-            time.sleep(1)
+        with open(PID_FILE_PATH) as f:
+            cmd = "gksu \"kill {0}\"".format(f.read().rstrip())
+            subprocess.Popen(cmd, shell=True)
+
+        self.ind.set_icon('landing')
+        self.disconnecting = True
 
     def session_is_open(self):
         return os.path.exists(PID_FILE_PATH)
 
     def start_session(self, endpoint_data):
-        cmdline = "sshuttle -r {0} {1} {2} --daemon --pidfile {3}".format(
+        if endpoint_data['use_askpass']:
+            os.environ['SSH_ASKPASS'] = 'ssh-askpass'
+
+        # Use setsid to force no terminal askpass
+        cmdline = "setsid sshuttle -r {0} {1} {2} --daemon --pidfile {3}".format(
             endpoint_data['address'],
             endpoint_data['subnet'],
             "--dns" if endpoint_data['use_dns'] else "",
             PID_FILE_PATH
         )
-        print cmdline
-        if DEBUG:
-            os.system(cmdline)
-        else:
-            os.system('gksudo "{0}"'.format(cmdline))
+
+        self.ind.set_icon('launching')
+        subprocess.Popen('gksu "{0}"'.format(cmdline), shell=True)
+        self.connecting = True
 
     def show_add_new_dialog(self, widget, initial_data={}):
         dialog = AddEndpointWindow(initial_data)
         result, data = dialog.run()
-        print result
-        print data
 
         if not data['name']:
             self.show_error("No name defined, try again")
@@ -198,7 +222,6 @@ class MainApplication():
         self.save_settings()
         self.build_menu()
 
-        print self.settings
 
     def edit_endpoint_clicked(self, widget):
         ep_name = widget.get_label()
@@ -220,12 +243,9 @@ class MainApplication():
             self.show_error("Endpoint not found in saved endpoint data. Something went wrong...")
             return
 
-        print endpoint
-
         # Start sshuttle if no session is running.
         if self.session_is_open():
             resp = self.confirm_action("A session is already active. Cancel this session?")
-            print resp
             if resp:
                 self.disconnect_current_session()
             else:
@@ -240,21 +260,27 @@ class MainApplication():
 
     def show_error(self, message):
         error_dialog = gtk.MessageDialog(
+            parent=None,
+            flags=gtk.DIALOG_MODAL,
             message_format=message,
             type=gtk.MESSAGE_ERROR,
             buttons=gtk.BUTTONS_CLOSE
         )
         response = error_dialog.run()
         error_dialog.destroy()
+        return response
 
     def confirm_action(self, message):
         confirm_dialog = gtk.MessageDialog(
+            parent=None,
+            flags=gtk.DIALOG_MODAL,
             message_format=message,
             type=gtk.MESSAGE_QUESTION,
             buttons=gtk.BUTTONS_YES_NO
         )
 
         response = confirm_dialog.run()
+        confirm_dialog.hide()
         confirm_dialog.destroy()
         return response
 

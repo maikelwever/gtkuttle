@@ -24,8 +24,6 @@ import gobject
 
 # We also need os and sys
 import os
-import sys
-from pkg_resources import resource_filename
 
 # Types
 CATEGORY_APPLICATION_STATUS = 0
@@ -37,9 +35,8 @@ STATUS_ATTENTION = 1
 # Locations to search for the given icon
 
 def get_icon_filename(icon_name):
-	
 	# Determine where the icon is
-	return os.path.abspath(resource_filename('hackertray.data', 'hacker-tray.png'))
+	print os.path.abspath(os.path.join(os.path.dirname(__file__), 'icons', 'gtkuttle_{0}.png'.format(icon_name)))
 
 # The main class
 class Indicator:
@@ -49,8 +46,8 @@ class Indicator:
 	def __init__ (self,unknown,icon,category):
 		
 		# Store the settings		
-		self.inactive_icon = get_icon_filename(icon)
-		self.active_icon   = ""  # Blank until the user calls set_attention_icon
+		self.inactive_icon = get_icon_filename("down")
+		self.active_icon   = get_icon_filename("down")
 		
 		# Create the status icon
 		self.icon = gtk.StatusIcon()
