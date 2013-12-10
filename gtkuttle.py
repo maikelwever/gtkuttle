@@ -1,14 +1,19 @@
 #!/usr/bin/env python2
 #gtkuttle.py
-#
-# ===============================================================
-# gtkuttle Copyright (C) 2013 Maikel Wever.
-#
-# This program comes with ABSOLUTELY NO WARRANTY;
-# for details see the LICENSE file.
-# This is free software, and you are welcome to redistribute it
-# under certain conditions; see the LICENCSE file for details.
-# ===============================================================
+
+"""
+===============================================================
+gtkuttle Copyright (C) 2013 Maikel Wever.
+
+This program comes with ABSOLUTELY NO WARRANTY;
+for details see the LICENSE file.
+This is free software, and you are welcome to redistribute it
+under certain conditions; see the LICENCSE file for details.
+===============================================================
+"""
+
+__version__ = "0.9"
+__status__ = "Development"
 
 import pygtk
 pygtk.require('2.0')
@@ -19,8 +24,6 @@ import glib
 import json
 import os
 import subprocess
-
-DEBUG = False
 
 try:
     import appindicator
