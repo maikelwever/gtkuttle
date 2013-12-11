@@ -25,10 +25,7 @@ import json
 import os
 import subprocess
 
-try:
-    import appindicator
-except ImportError:
-    import appindicator_replacement as appindicator
+import appindicator_replacement as appindicator
 
 
 SETTINGS_FILE_PATH = os.path.expanduser("~/.gtkuttle.json")

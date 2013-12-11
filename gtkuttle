@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#gtkuttle
+
+python2 gtkuttle.py&
