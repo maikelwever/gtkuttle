@@ -215,7 +215,10 @@ class MainApplication():
         )
 
         self.ind.set_icon('launching')
-        subprocess.Popen('gksu "{0}"'.format(cmdline), shell=True)
+        if os.getuid():  # value true is > 0 so user is not root
+            subprocess.Popen('gksu "{0}"'.format(cmdline), shell=True)
+        else:
+            subprocess.Popen(cmdline, shell=True)
         self.connecting = True
 
     def show_add_new_dialog(self, widget, initial_data={}):
